@@ -1,0 +1,57 @@
+version: "3.10"
+
+services:
+  influxdb:
+    image: arm64v8/influxdb:1.11
+    container_name: influxdb
+    network_mode: bridge
+    restart: unless-stopped
+    ports:
+      - '8086:8086'
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: changeme
+    volumes:
+      - home/pi/monitoring/influxdb/var_lib_influxdb:/var/lib/influxdb
+      - home/pi/monitoring/influxdb/etc_influxdb:/etc/influxdb
+
+  grafana:
+    image: grafana/grafana-enterprise:latest
+    network_mode: bridge
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    volumes:
+      - home/pi/monitoring/monitoring/grafana/var_lib_grafana:/var/lib/grafana:rw
+      - home/pi/monitoring/monitoring/grafana/var_log_grafana:/var/log/grafana:rw
+      - home/pi/monitoring/monitoring/grafana/etc_grafana:/etc/grafana:rw
+
+  mqtt2influx:
+    build: mqtt2influx/Dockerfile
+    container_name: mqtt-to-influx
+    restart: unless-stopped
+    depends_on:
+      - influxdb
+    environment:
+      - MQTT_BROKER=mqtt-broker
+      - MQTT_PORT=1883
+      - MQTT_TOPIC=#
+      - INFLUX_URL=influxdb:8086
+
+
+  mqtt-broker:
+    image: arm64v8/eclipse-mosquitto:2
+    network_mode: bridge
+    container_name: mqtt-broker
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - home/pi/monitoring/monitoring/mqtt/conf:/mosquitto/conf
+      - home/pi/monitoring/monitoring/mqtt/data:/mosquitto/data
+      - home/pi/monitoring/monitoring/mqtt/log:/mosquitto/log
+      - home/pi/monitoring/monitoring/mqtt/conf/mosquitto.conf:/mosquitto/conf/mosquitto.conf
+      # - home/pi/monitoring/monitoring/mqtt/config/mosquitto.conf:/mosquitto/config/mosquitto.conf
